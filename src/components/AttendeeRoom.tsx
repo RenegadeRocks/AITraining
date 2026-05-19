@@ -210,6 +210,7 @@ export function AttendeeRoom({ session: initialSession }: { session: Session }) 
             <AttendeeQuestion
               key={q.id}
               question={q}
+              sessionEnded={session.ended}
               onResolve={() => resolveQuestion(q.id)}
               onEscalate={() => escalateQuestion(q.id)}
             />

@@ -6,10 +6,12 @@ import { Markdown } from "@/lib/markdown";
 
 export function AttendeeQuestion({
   question,
+  sessionEnded,
   onResolve,
   onEscalate,
 }: {
   question: QuestionRow;
+  sessionEnded: boolean;
   onResolve: () => Promise<void>;
   onEscalate: () => Promise<void>;
 }) {
@@ -32,7 +34,7 @@ export function AttendeeQuestion({
   const isResolved = question.status === "resolved";
   const canMarkResolved =
     !isResolved && (question.status === "answered" || isReplied);
-  const canStillAskTrainer = question.status === "answered";
+  const canStillAskTrainer = !sessionEnded && question.status === "answered";
 
   return (
     <article className="card animate-slide-up p-5">

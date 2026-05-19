@@ -141,12 +141,12 @@ export function HostDashboard({
         </div>
 
         {showShare && (
-          <div className="card mt-4 p-5 animate-slide-up">
+          <div className="card mt-4 p-5 animate-slide-up sm:p-8">
             <div className="label">Session code</div>
-            <div className="flex items-center justify-center rounded-xl bg-ink-900 px-6 py-6 text-5xl font-bold tracking-[0.4em] text-white">
+            <div className="flex items-center justify-center rounded-xl bg-ink-900 px-6 py-8 text-6xl font-bold tracking-[0.4em] text-white sm:py-14 sm:text-[7rem] sm:tracking-[0.45em]">
               {session.code}
             </div>
-            <p className="mt-3 text-center text-sm text-ink-500">{joinUrl}</p>
+            <p className="mt-3 text-center text-sm text-ink-500 sm:text-base">{joinUrl}</p>
             <button
               onClick={() => navigator.clipboard?.writeText(joinUrl)}
               className="btn-ghost mt-3 w-full text-sm"
@@ -251,7 +251,7 @@ function FilterChip({
       <span>{label}</span>
       <span
         className={[
-          "rounded-full px-1.5 text-[10px] font-semibold",
+          "tabular rounded-full px-1.5 text-[10px] font-semibold",
           active ? "bg-white/15 text-white" : "bg-ink-100 text-ink-500",
         ].join(" ")}
       >
@@ -274,7 +274,7 @@ function EmptyState({ filter, code }: { filter: Filter; code: string }) {
       </p>
       <p className="mt-1 text-sm text-ink-500">
         {filter === "resolved"
-          ? "Questions land here when an attendee gets their answer from the AI and taps “Got it — thanks.”"
+          ? "Questions the AI answered to the attendee's satisfaction land here."
           : (
             <>
               Share code{" "}

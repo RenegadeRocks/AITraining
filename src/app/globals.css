@@ -47,11 +47,16 @@
   }
 
   .card-raised {
-    @apply rounded-2xl border border-white/60 bg-white/80 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_16px_40px_-16px_rgba(14,18,27,0.22)] backdrop-blur-md;
+    @apply rounded-2xl border border-white/60 bg-white/80 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_24px_60px_-20px_rgba(14,18,27,0.28)] backdrop-blur-md;
   }
 
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white/60;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 
   .btn-primary {

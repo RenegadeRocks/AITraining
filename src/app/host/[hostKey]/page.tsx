@@ -1,15 +1,19 @@
 import { notFound } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { HostDashboard } from "@/components/HostDashboard";
 import type { QuestionRow, SessionRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function HostSessionPage({
   params,
 }: {
   params: { hostKey: string };
 }) {
+  noStore();
   const supabase = supabaseAdmin();
 
   const { data: session } = await supabase

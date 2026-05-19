@@ -1,15 +1,19 @@
 import { notFound } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AttendeeRoom } from "@/components/AttendeeRoom";
 import type { SessionRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 export default async function AttendeePage({
   params,
 }: {
   params: { code: string };
 }) {
+  noStore();
   const code = params.code.toUpperCase();
   const supabase = supabaseAdmin();
   const { data: session } = await supabase

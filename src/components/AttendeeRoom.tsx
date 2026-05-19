@@ -11,13 +11,15 @@ const NAME_KEY = (sessionId: string) => `atr:name:${sessionId}`;
 const ID_KEY = (sessionId: string) => `atr:attendee:${sessionId}`;
 const QIDS_KEY = (attendeeId: string) => `atr:qids:${attendeeId}`;
 
-export function AttendeeRoom({ session }: { session: Session }) {
+export function AttendeeRoom({ session: initialSession }: { session: Session }) {
+  const [session, setSession] = useState<Session>(initialSession);
   const [name, setName] = useState<string | null>(null);
   const [attendeeId, setAttendeeId] = useState<string | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState<"ai" | "trainer" | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
@@ -67,6 +69,24 @@ export function AttendeeRoom({ session }: { session: Session }) {
     };
   }, [attendeeId]);
 
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+    const channel = supabase
+      .channel(`session:${session.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
+        (payload) => {
+          const row = payload.new as { id: string; status: string };
+          setSession((prev) => ({ ...prev, ended: row.status === "ended" }));
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session.id]);
+
   async function registerName(formName: string) {
     const trimmed = formName.trim();
     if (!trimmed) return;
@@ -86,8 +106,8 @@ export function AttendeeRoom({ session }: { session: Session }) {
   async function submitQuestion(path: "ai" | "trainer") {
     if (!attendeeId || !draft.trim() || submitting) return;
     setSubmitting(path);
+    setSubmitError(null);
     const body = draft.trim();
-    setDraft("");
     try {
       const res = await fetch("/api/questions", {
         method: "POST",
@@ -100,7 +120,18 @@ export function AttendeeRoom({ session }: { session: Session }) {
         setQuestions(next);
         const ids = next.map((q) => q.id);
         localStorage.setItem(QIDS_KEY(attendeeId), JSON.stringify(ids));
+        setDraft("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 404 && /not live|unavailable/i.test(data?.error ?? "")) {
+          setSubmitError("This session has ended — your trainer closed it.");
+          setSession((prev) => ({ ...prev, ended: true }));
+        } else {
+          setSubmitError(data?.error || "Couldn't send. Try again in a moment.");
+        }
       }
+    } catch {
+      setSubmitError("Network issue. Check your connection and try again.");
     } finally {
       setSubmitting(null);
       composerRef.current?.focus();
@@ -193,6 +224,7 @@ export function AttendeeRoom({ session }: { session: Session }) {
           onChange={setDraft}
           onSubmit={submitQuestion}
           submitting={submitting}
+          error={submitError}
         />
       )}
     </main>
@@ -254,10 +286,11 @@ type ComposerProps = {
   onChange: (v: string) => void;
   onSubmit: (path: "ai" | "trainer") => void;
   submitting: "ai" | "trainer" | null;
+  error: string | null;
 };
 
 const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function Composer(
-  { value, onChange, onSubmit, submitting },
+  { value, onChange, onSubmit, submitting, error },
   ref
 ) {
   const ready = value.trim().length > 0;
@@ -266,6 +299,11 @@ const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function Compose
   return (
     <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/60 bg-white/85 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur-md">
       <div className="mx-auto w-full max-w-md space-y-2">
+        {error && (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50/90 px-3 py-2 text-xs font-medium text-red-700 animate-slide-up">
+            {error}
+          </div>
+        )}
         <textarea
           ref={ref}
           value={value}

@@ -45,7 +45,9 @@ create index if not exists questions_status_idx on questions(session_id, status)
 
 -- Realtime: the host dashboard subscribes to changes on questions for their session;
 -- attendees subscribe to changes on their own question rows (filtered by id).
+-- Sessions is also published so attendees see "ended" instantly when the host ends.
 alter publication supabase_realtime add table questions;
+alter publication supabase_realtime add table sessions;
 
 -- Row-level security: the access model is "knowing the code grants read".
 -- All writes go through the server (service role), which enforces scoping.

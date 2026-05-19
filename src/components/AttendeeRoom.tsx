@@ -17,10 +17,9 @@ export function AttendeeRoom({ session }: { session: Session }) {
   const [bootstrapped, setBootstrapped] = useState(false);
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [draft, setDraft] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<"ai" | "trainer" | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // bootstrap identity from localStorage
   useEffect(() => {
     const savedName = localStorage.getItem(NAME_KEY(session.id));
     const savedId = localStorage.getItem(ID_KEY(session.id));
@@ -29,7 +28,6 @@ export function AttendeeRoom({ session }: { session: Session }) {
     setBootstrapped(true);
   }, [session.id]);
 
-  // load my own questions once we know who I am
   useEffect(() => {
     if (!attendeeId) return;
     const raw = localStorage.getItem(QIDS_KEY(attendeeId));
@@ -50,7 +48,6 @@ export function AttendeeRoom({ session }: { session: Session }) {
     })();
   }, [attendeeId]);
 
-  // realtime: subscribe to changes on my own questions
   useEffect(() => {
     if (!attendeeId) return;
     const supabase = supabaseBrowser();
@@ -86,16 +83,16 @@ export function AttendeeRoom({ session }: { session: Session }) {
     setAttendeeId(newId);
   }
 
-  async function submitQuestion() {
+  async function submitQuestion(path: "ai" | "trainer") {
     if (!attendeeId || !draft.trim() || submitting) return;
-    setSubmitting(true);
+    setSubmitting(path);
     const body = draft.trim();
     setDraft("");
     try {
       const res = await fetch("/api/questions", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id, attendeeId, body }),
+        body: JSON.stringify({ sessionId: session.id, attendeeId, body, path }),
       });
       if (res.ok) {
         const { question } = await res.json();
@@ -105,22 +102,32 @@ export function AttendeeRoom({ session }: { session: Session }) {
         localStorage.setItem(QIDS_KEY(attendeeId), JSON.stringify(ids));
       }
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
       composerRef.current?.focus();
     }
   }
 
   async function resolveQuestion(id: string) {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === id ? { ...q, status: "resolved", resolved_at: new Date().toISOString() } : q
+      )
+    );
     await fetch(`/api/questions/${id}/resolve`, { method: "POST" });
   }
 
   async function escalateQuestion(id: string) {
+    setQuestions((prev) =>
+      prev.map((q) =>
+        q.id === id ? { ...q, status: "escalated", escalated_at: new Date().toISOString() } : q
+      )
+    );
     await fetch(`/api/questions/${id}/escalate`, { method: "POST" });
   }
 
   if (!bootstrapped) return null;
 
-  if (session.ended) {
+  if (session.ended && (!attendeeId || questions.length === 0)) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col items-center justify-center px-5 text-center">
         <div className="text-4xl">👋</div>
@@ -135,27 +142,37 @@ export function AttendeeRoom({ session }: { session: Session }) {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-6 pb-40">
+    <main className={`mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pt-6 ${session.ended ? "pb-12" : "pb-48"}`}>
       <header className="mb-5 animate-fade-in">
         <div className="flex items-center gap-2">
-          <span className="chip bg-emerald-50 text-emerald-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
-            Live
-          </span>
-          <span className="text-xs text-ink-400">Code {session.code}</span>
+          {session.ended ? (
+            <span className="chip bg-ink-200 text-ink-700">Ended</span>
+          ) : (
+            <span className="chip bg-emerald-50 text-emerald-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
+              Live
+            </span>
+          )}
+          <span className="text-xs text-ink-500">Code {session.code}</span>
         </div>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight text-ink-900">
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink-900">
           {session.title}
         </h1>
-        <p className="mt-1 text-sm text-ink-500">Hi {name} — ask anything below.</p>
+        <p className="mt-1 text-sm text-ink-500">
+          {session.ended
+            ? `Hi ${name} — this session has ended. Your questions and replies are below.`
+            : `Hi ${name} — ask the AI for an instant answer, or send it to your trainer.`}
+        </p>
       </header>
 
       <section className="space-y-3">
         {questions.length === 0 ? (
-          <div className="card p-8 text-center text-ink-500">
-            <div className="text-3xl">✨</div>
+          <div className="card p-8 text-center">
+            <div className="text-3xl animate-sparkle">✨</div>
             <p className="mt-2 font-medium text-ink-700">No questions yet.</p>
-            <p className="mt-1 text-sm">Your first one will appear here.</p>
+            <p className="mt-1 text-sm text-ink-500">
+              Type below — pick AI for instant, or trainer for personal.
+            </p>
           </div>
         ) : (
           questions.map((q) => (
@@ -169,13 +186,15 @@ export function AttendeeRoom({ session }: { session: Session }) {
         )}
       </section>
 
-      <Composer
-        ref={composerRef}
-        value={draft}
-        onChange={setDraft}
-        onSubmit={submitQuestion}
-        submitting={submitting}
-      />
+      {!session.ended && (
+        <Composer
+          ref={composerRef}
+          value={draft}
+          onChange={setDraft}
+          onSubmit={submitQuestion}
+          submitting={submitting}
+        />
+      )}
     </main>
   );
 }
@@ -198,8 +217,11 @@ function NamePrompt({
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink-900">
           {session.title}
         </h1>
+        <p className="mt-2 text-sm text-ink-500">
+          Pop in your first name to join.
+        </p>
       </header>
-      <section className="card animate-slide-up p-6">
+      <section className="card-raised animate-slide-up p-6">
         <label className="label" htmlFor="name">Your first name</label>
         <input
           id="name"
@@ -219,8 +241,8 @@ function NamePrompt({
         >
           Join the room
         </button>
-        <p className="mt-3 text-center text-xs text-ink-400">
-          Only the instructor sees your name.
+        <p className="mt-3 text-center text-xs text-ink-500">
+          Only the trainer sees your name.
         </p>
       </section>
     </main>
@@ -230,40 +252,100 @@ function NamePrompt({
 type ComposerProps = {
   value: string;
   onChange: (v: string) => void;
-  onSubmit: () => void;
-  submitting: boolean;
+  onSubmit: (path: "ai" | "trainer") => void;
+  submitting: "ai" | "trainer" | null;
 };
 
 const Composer = forwardRef<HTMLTextAreaElement, ComposerProps>(function Composer(
   { value, onChange, onSubmit, submitting },
   ref
 ) {
+  const ready = value.trim().length > 0;
+  const busy = submitting !== null;
+
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-ink-200/70 bg-white/90 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-md items-end gap-2">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/60 bg-white/85 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur-md">
+      <div className="mx-auto w-full max-w-md space-y-2">
         <textarea
           ref={ref}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Ask anything…"
-          rows={1}
-          className="input max-h-32 min-h-[48px] resize-none"
+          rows={2}
+          className="input max-h-32 min-h-[56px] resize-none"
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
               e.preventDefault();
-              onSubmit();
+              onSubmit("ai");
             }
           }}
         />
-        <button
-          onClick={onSubmit}
-          disabled={submitting || !value.trim()}
-          className="btn-accent shrink-0 h-12 px-5"
-          aria-label="Send question"
-        >
-          {submitting ? "…" : "Ask"}
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => onSubmit("ai")}
+            disabled={busy || !ready}
+            className="btn-accent"
+            aria-label="Get an AI answer"
+          >
+            {submitting === "ai" ? (
+              <>
+                <SpinDots />
+                Thinking…
+              </>
+            ) : (
+              <>
+                <SparkleIcon />
+                Get AI Answer
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => onSubmit("trainer")}
+            disabled={busy || !ready}
+            className="btn-warm"
+            aria-label="Ask the trainer"
+          >
+            {submitting === "trainer" ? (
+              <>
+                <SpinDots />
+                Sending…
+              </>
+            ) : (
+              <>
+                <PlaneIcon />
+                Ask the trainer
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );
 });
+
+function SparkleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2z" />
+      <path d="M19 14l.9 2.6L22.5 17.5l-2.6.9L19 21l-.9-2.6L15.5 17.5l2.6-.9L19 14z" opacity=".7" />
+    </svg>
+  );
+}
+
+function PlaneIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M2.5 11.5L21 3l-8.5 18.5-2-7.5-8-2.5z" />
+    </svg>
+  );
+}
+
+function SpinDots() {
+  return (
+    <span className="flex gap-1">
+      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse [animation-delay:120ms]" />
+      <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse [animation-delay:240ms]" />
+    </span>
+  );
+}

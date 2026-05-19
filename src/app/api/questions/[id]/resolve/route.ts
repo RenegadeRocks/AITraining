@@ -9,7 +9,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     .from("questions")
     .update({ status: "resolved", resolved_at: new Date().toISOString() })
     .eq("id", params.id)
-    .in("status", ["answered", "pending"])
+    .in("status", ["answered", "pending", "replied"])
     .select("*")
     .single();
   if (error || !data) {

@@ -2,9 +2,9 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ask the Room — AI Training Companion",
+  title: "Ask Anytime — AI Training Q&A",
   description:
-    "Ask questions live during an AI training session. Get an instant AI answer, or escalate to your instructor.",
+    "Ask anything live during your AI training. Get an instant AI answer, or send it to your trainer.",
 };
 
 export const viewport: Viewport = {

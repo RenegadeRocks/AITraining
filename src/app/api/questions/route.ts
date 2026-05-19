@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-server";
-import { answerQuestion } from "@/lib/anthropic";
+import { answerQuestion } from "@/lib/llm";
 import type { QuestionRow, SessionRow, AttendeeRow } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   const sessionId: string | undefined = body?.sessionId;
   const attendeeId: string | undefined = body?.attendeeId;
   const questionBody = typeof body?.body === "string" ? body.body.trim() : "";
+  const path: "ai" | "trainer" = body?.path === "trainer" ? "trainer" : "ai";
 
   if (!sessionId || !attendeeId || !questionBody) {
     return NextResponse.json(
@@ -44,6 +45,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Attendee not in session." }, { status: 403 });
   }
 
+  const now = new Date().toISOString();
+  const initialStatus = path === "trainer" ? "escalated" : "pending";
   const { data: created, error } = await supabase
     .from("questions")
     .insert({
@@ -51,12 +54,17 @@ export async function POST(req: Request) {
       attendee_id: attendeeId,
       attendee_name: attendee.name,
       body: questionBody,
-      status: "pending",
+      status: initialStatus,
+      escalated_at: path === "trainer" ? now : null,
     })
     .select("*")
     .single<QuestionRow>();
   if (error || !created) {
     return NextResponse.json({ error: "Couldn't save question." }, { status: 500 });
+  }
+
+  if (path === "trainer") {
+    return NextResponse.json({ question: created });
   }
 
   let aiAnswer: string;
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
   } catch (e) {
     console.error("AI answer failed:", e);
     aiAnswer =
-      "I couldn't generate an answer right now. Tap 'I need a human' to send this to your instructor.";
+      "I couldn't generate an answer right now. Tap 'Ask the trainer' to send this to your trainer.";
   }
 
   const { data: updated } = await supabase

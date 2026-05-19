@@ -5,16 +5,35 @@
 @layer base {
   html,
   body {
-    @apply h-full bg-ink-50 text-ink-900 antialiased;
+    @apply h-full text-ink-900 antialiased;
     font-feature-settings: "cv11", "ss01";
   }
 
   body {
-    background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(58, 107, 255, 0.10), transparent 60%),
-      radial-gradient(900px 500px at -10% 110%, rgba(93, 142, 255, 0.10), transparent 60%),
-      #f7f8fa;
+    background-color: #f5f6fb;
+    background-image:
+      radial-gradient(900px 600px at 12% -10%, rgba(93, 142, 255, 0.28), transparent 55%),
+      radial-gradient(800px 600px at 100% 0%, rgba(247, 118, 34, 0.18), transparent 55%),
+      radial-gradient(900px 600px at 50% 110%, rgba(126, 90, 255, 0.18), transparent 60%);
+    background-attachment: fixed;
     min-height: 100dvh;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(rgba(14, 18, 27, 0.05) 1px, transparent 1px);
+    background-size: 18px 18px;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.1));
+    z-index: 0;
+  }
+
+  body > * {
+    position: relative;
+    z-index: 1;
   }
 
   ::selection {
@@ -24,7 +43,11 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-ink-200/70 bg-white/80 backdrop-blur-sm shadow-sm;
+    @apply rounded-2xl border border-white/60 bg-white/70 shadow-[0_1px_0_rgba(255,255,255,0.7)_inset,0_8px_24px_-12px_rgba(14,18,27,0.18)] backdrop-blur-md;
+  }
+
+  .card-raised {
+    @apply rounded-2xl border border-white/60 bg-white/80 shadow-[0_1px_0_rgba(255,255,255,0.9)_inset,0_16px_40px_-16px_rgba(14,18,27,0.22)] backdrop-blur-md;
   }
 
   .btn {
@@ -36,15 +59,30 @@
   }
 
   .btn-accent {
-    @apply btn bg-accent-500 text-white hover:bg-accent-600 shadow-sm shadow-accent-500/20;
+    @apply btn text-white shadow-[0_8px_24px_-8px_rgba(58,107,255,0.55)];
+    background-image: linear-gradient(135deg, #5d8eff 0%, #3a6bff 60%, #2750e6 100%);
   }
+  .btn-accent:hover { filter: brightness(1.05); }
+
+  .btn-warm {
+    @apply btn text-white shadow-[0_8px_24px_-8px_rgba(247,118,34,0.5)];
+    background-image: linear-gradient(135deg, #ff9244 0%, #f77622 60%, #df5d10 100%);
+  }
+  .btn-warm:hover { filter: brightness(1.05); }
 
   .btn-ghost {
-    @apply btn bg-white text-ink-700 border border-ink-200 hover:bg-ink-50;
+    @apply btn bg-white/80 text-ink-700 border border-ink-200 hover:bg-white;
   }
 
+  .btn-emerald {
+    @apply btn text-white;
+    background-image: linear-gradient(135deg, #34d399 0%, #10b981 60%, #059669 100%);
+    box-shadow: 0 8px 24px -8px rgba(16, 185, 129, 0.45);
+  }
+  .btn-emerald:hover { filter: brightness(1.05); }
+
   .input {
-    @apply w-full rounded-xl border border-ink-200 bg-white px-4 py-3 text-base text-ink-900 placeholder-ink-400 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-200 transition;
+    @apply w-full rounded-xl border border-ink-200 bg-white/90 px-4 py-3 text-base text-ink-900 placeholder-ink-400 focus:border-accent-400 focus:outline-none focus:ring-2 focus:ring-accent-200 transition;
   }
 
   .label {
@@ -54,14 +92,24 @@
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
   }
+
+  .shimmer {
+    background: linear-gradient(90deg, rgba(58,107,255,0.05) 0%, rgba(58,107,255,0.18) 50%, rgba(58,107,255,0.05) 100%);
+    background-size: 200% 100%;
+  }
+
+  .prose-answer {
+    @apply text-[15px] leading-relaxed text-ink-800;
+  }
+  .prose-answer strong { @apply text-ink-900; }
+  .prose-answer ul, .prose-answer ol { @apply my-2; }
+  .prose-answer code { @apply text-[0.92em]; }
 }
 
-/* Smooth scroll on host dashboard */
 .scroll-smooth-y {
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Hide scrollbars on mobile for cleaner feel */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }

@@ -32,11 +32,27 @@ const config: Config = {
           800: "#1d358c",
           900: "#1c2f6e",
         },
+        warm: {
+          50: "#fff6ed",
+          100: "#ffe9d2",
+          200: "#ffcfa1",
+          300: "#ffb070",
+          400: "#ff9244",
+          500: "#f77622",
+          600: "#df5d10",
+          700: "#b6470e",
+          800: "#8e3a12",
+          900: "#723212",
+        },
       },
       animation: {
         "fade-in": "fadeIn 0.3s ease-out",
         "slide-up": "slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1)",
         "pulse-soft": "pulseSoft 2s ease-in-out infinite",
+        "shimmer": "shimmer 2.4s linear infinite",
+        "float-slow": "floatSlow 18s ease-in-out infinite",
+        "blob": "blob 22s ease-in-out infinite",
+        "sparkle": "sparkle 1.6s ease-in-out infinite",
       },
       keyframes: {
         fadeIn: {
@@ -50,6 +66,23 @@ const config: Config = {
         pulseSoft: {
           "0%, 100%": { opacity: "0.6" },
           "50%": { opacity: "1" },
+        },
+        shimmer: {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        floatSlow: {
+          "0%, 100%": { transform: "translateY(0) translateX(0)" },
+          "50%": { transform: "translateY(-14px) translateX(8px)" },
+        },
+        blob: {
+          "0%, 100%": { transform: "translate(0,0) scale(1)" },
+          "33%": { transform: "translate(40px,-30px) scale(1.1)" },
+          "66%": { transform: "translate(-30px,20px) scale(0.95)" },
+        },
+        sparkle: {
+          "0%, 100%": { opacity: "0.5", transform: "scale(0.9) rotate(-3deg)" },
+          "50%": { opacity: "1", transform: "scale(1.05) rotate(3deg)" },
         },
       },
     },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { QuestionRow, SessionRow } from "@/lib/types";
 import { QuestionCard } from "./QuestionCard";
@@ -142,11 +143,27 @@ export function HostDashboard({
 
         {showShare && (
           <div className="card mt-4 p-5 animate-slide-up sm:p-8">
-            <div className="label">Session code</div>
-            <div className="flex items-center justify-center rounded-xl bg-ink-900 px-6 py-8 text-6xl font-bold tracking-[0.4em] text-white sm:py-14 sm:text-[7rem] sm:tracking-[0.45em]">
+            <div className="label text-center">Scan to join</div>
+            <div className="flex justify-center">
+              <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-ink-200 sm:p-4">
+                <QRCodeSVG
+                  value={joinUrl}
+                  size={220}
+                  level="M"
+                  marginSize={0}
+                  fgColor="#0e121b"
+                  bgColor="#ffffff"
+                  className="block h-[200px] w-[200px] sm:h-[300px] sm:w-[300px]"
+                />
+              </div>
+            </div>
+            <div className="mt-6 text-center text-xs font-medium uppercase tracking-wider text-ink-400">
+              or enter code
+            </div>
+            <div className="mt-2 flex items-center justify-center rounded-xl bg-ink-900 px-6 py-8 text-6xl font-bold tracking-[0.4em] text-white sm:py-14 sm:text-[7rem] sm:tracking-[0.45em]">
               {session.code}
             </div>
-            <p className="mt-3 text-center text-sm text-ink-500 sm:text-base">{joinUrl}</p>
+            <p className="mt-3 break-all text-center text-sm text-ink-500 sm:text-base">{joinUrl}</p>
             <button
               onClick={() => navigator.clipboard?.writeText(joinUrl)}
               className="btn-ghost mt-3 w-full text-sm"

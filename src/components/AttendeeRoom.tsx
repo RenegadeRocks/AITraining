@@ -116,14 +116,20 @@ export function AttendeeRoom({ session: initialSession }: { session: Session }) 
       });
       if (res.ok) {
         const { question } = await res.json();
-        const next = [question as QuestionRow, ...questions];
-        setQuestions(next);
-        const ids = next.map((q) => q.id);
-        localStorage.setItem(QIDS_KEY(attendeeId), JSON.stringify(ids));
+        // Functional updater — don't capture stale `questions` closure that
+        // would wipe realtime updates landing during the in-flight POST.
+        setQuestions((prev) => {
+          const next = [question as QuestionRow, ...prev];
+          localStorage.setItem(QIDS_KEY(attendeeId), JSON.stringify(next.map((q) => q.id)));
+          return next;
+        });
         setDraft("");
       } else {
         const data = await res.json().catch(() => ({}));
-        if (res.status === 404 && /not live|unavailable/i.test(data?.error ?? "")) {
+        const isEnded =
+          res.status === 404 &&
+          (data?.code === "session_ended" || /not live|unavailable/i.test(data?.error ?? ""));
+        if (isEnded) {
           setSubmitError("This session has ended — your trainer closed it.");
           setSession((prev) => ({ ...prev, ended: true }));
         } else {
@@ -138,13 +144,28 @@ export function AttendeeRoom({ session: initialSession }: { session: Session }) 
     }
   }
 
+  async function refetchQuestion(id: string) {
+    const supabase = supabaseBrowser();
+    const { data } = await supabase
+      .from("questions")
+      .select("*")
+      .eq("id", id)
+      .single<QuestionRow>();
+    if (data) setQuestions((prev) => prev.map((q) => (q.id === id ? data : q)));
+  }
+
   async function resolveQuestion(id: string) {
     setQuestions((prev) =>
       prev.map((q) =>
         q.id === id ? { ...q, status: "resolved", resolved_at: new Date().toISOString() } : q
       )
     );
-    await fetch(`/api/questions/${id}/resolve`, { method: "POST" });
+    try {
+      const res = await fetch(`/api/questions/${id}/resolve`, { method: "POST" });
+      if (!res.ok) await refetchQuestion(id);
+    } catch {
+      await refetchQuestion(id);
+    }
   }
 
   async function escalateQuestion(id: string) {
@@ -153,7 +174,12 @@ export function AttendeeRoom({ session: initialSession }: { session: Session }) 
         q.id === id ? { ...q, status: "escalated", escalated_at: new Date().toISOString() } : q
       )
     );
-    await fetch(`/api/questions/${id}/escalate`, { method: "POST" });
+    try {
+      const res = await fetch(`/api/questions/${id}/escalate`, { method: "POST" });
+      if (!res.ok) await refetchQuestion(id);
+    } catch {
+      await refetchQuestion(id);
+    }
   }
 
   if (!bootstrapped) return null;

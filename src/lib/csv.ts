@@ -12,8 +12,11 @@ const HEADERS = [
 
 function csvEscape(value: string | null | undefined): string {
   if (value == null) return "";
-  const needsQuotes = /[",\n\r]/.test(value);
-  const escaped = value.replace(/"/g, '""');
+  let s = value;
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  s = s.replace(/\r\n|\r|\n/g, "\r\n");
+  const needsQuotes = /[",\r\n]/.test(s);
+  const escaped = s.replace(/"/g, '""');
   return needsQuotes ? `"${escaped}"` : escaped;
 }
 

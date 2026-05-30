@@ -22,6 +22,7 @@ export function HostDashboard({
   const [showShare, setShowShare] = useState(false);
   const [confirmingEnd, setConfirmingEnd] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [endError, setEndError] = useState<string | null>(null);
   const initialIdsRef = useRef(new Set(initialQuestions.map((q) => q.id)));
 
   useEffect(() => {
@@ -39,6 +40,24 @@ export function HostDashboard({
             const row = payload.new as QuestionRow;
             setQuestions((prev) => prev.map((q) => (q.id === row.id ? row : q)));
           }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session.id]);
+
+  // Keep session state in sync across host tabs/devices.
+  useEffect(() => {
+    const supabase = supabaseBrowser();
+    const channel = supabase
+      .channel(`host-session:${session.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "sessions", filter: `id=eq.${session.id}` },
+        (payload) => {
+          setSession((prev) => ({ ...prev, ...(payload.new as Partial<SessionRow>) }));
         }
       )
       .subscribe();
@@ -81,6 +100,7 @@ export function HostDashboard({
 
   async function endSession() {
     setEnding(true);
+    setEndError(null);
     try {
       const res = await fetch(`/api/sessions/${session.id}/end`, {
         method: "POST",
@@ -90,7 +110,12 @@ export function HostDashboard({
         const { session: updated } = await res.json();
         setSession(updated);
         setConfirmingEnd(false);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setEndError(data?.error || "Couldn't end the session. Try again.");
       }
+    } catch {
+      setEndError("Network issue. Check your connection and try again.");
     } finally {
       setEnding(false);
     }
@@ -230,9 +255,13 @@ export function HostDashboard({
 
       {confirmingEnd && (
         <ConfirmEndModal
-          onCancel={() => setConfirmingEnd(false)}
+          onCancel={() => {
+            setConfirmingEnd(false);
+            setEndError(null);
+          }}
           onConfirm={endSession}
           loading={ending}
+          error={endError}
         />
       )}
     </main>
@@ -308,10 +337,12 @@ function ConfirmEndModal({
   onCancel,
   onConfirm,
   loading,
+  error,
 }: {
   onCancel: () => void;
   onConfirm: () => void;
   loading: boolean;
+  error: string | null;
 }) {
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink-900/40 p-4 backdrop-blur-sm sm:items-center">
@@ -321,6 +352,14 @@ function ConfirmEndModal({
           Attendees won&apos;t be able to ask new questions. They can still see
           their own questions and your replies. This can&apos;t be undone.
         </p>
+        {error && (
+          <p
+            role="alert"
+            className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+          >
+            {error}
+          </p>
+        )}
         <div className="mt-5 grid grid-cols-2 gap-2">
           <button onClick={onCancel} className="btn-ghost" disabled={loading}>
             Cancel

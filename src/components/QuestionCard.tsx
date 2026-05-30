@@ -44,7 +44,7 @@ export function QuestionCard({
 }) {
   const [reply, setReply] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(question.status === "escalated");
   const ago = useRelativeTime(question.created_at);
 
   const style = STATUS_STYLES[question.status] ?? STATUS_STYLES.pending;

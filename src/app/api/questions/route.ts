@@ -39,7 +39,10 @@ export async function POST(req: Request) {
   ]);
 
   if (!session || session.status !== "live") {
-    return NextResponse.json({ error: "Session not live." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Session not live.", code: "session_ended" },
+      { status: 404 }
+    );
   }
   if (!attendee || attendee.session_id !== sessionId) {
     return NextResponse.json({ error: "Attendee not in session." }, { status: 403 });
@@ -76,7 +79,7 @@ export async function POST(req: Request) {
       "I couldn't generate an answer right now. Tap 'Ask the trainer' to send this to your trainer.";
   }
 
-  const { data: updated } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("questions")
     .update({
       ai_answer: aiAnswer,
@@ -87,5 +90,21 @@ export async function POST(req: Request) {
     .select("*")
     .single<QuestionRow>();
 
-  return NextResponse.json({ question: updated ?? { ...created, ai_answer: aiAnswer } });
+  if (updateError) {
+    console.error("Failed to persist AI answer to DB:", updateError);
+  }
+
+  // If the DB UPDATE failed, the row stays at status='pending' server-side, but
+  // we hand the client a row that reflects what actually happened (we did get
+  // an AI answer) so the UI doesn't spin forever. The realtime channel will
+  // also not fire in that case — the client response is the source of truth.
+  return NextResponse.json({
+    question:
+      updated ?? {
+        ...created,
+        ai_answer: aiAnswer,
+        status: "answered" as const,
+        answered_at: new Date().toISOString(),
+      },
+  });
 }

@@ -15,6 +15,7 @@ Never:
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4.5";
+const REQUEST_TIMEOUT_MS = 25_000;
 
 export async function answerQuestion(question: string, sessionTitle: string): Promise<string> {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -22,26 +23,40 @@ export async function answerQuestion(question: string, sessionTitle: string): Pr
 
   const model = process.env.OPENROUTER_MODEL || DEFAULT_MODEL;
 
-  const res = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://ask-the-room.local",
-      "X-Title": "Ask the Room",
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: 800,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Training session topic: ${sessionTitle}\n\nQuestion: ${question}`,
-        },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": process.env.OPENROUTER_SITE_URL || "https://ask-the-room.local",
+        "X-Title": "Ask the Room",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 800,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Training session topic: ${sessionTitle}\n\nQuestion: ${question}`,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if ((e as { name?: string })?.name === "AbortError") {
+      throw new Error(`OpenRouter timeout after ${REQUEST_TIMEOUT_MS}ms`);
+    }
+    throw e;
+  }
+  clearTimeout(timer);
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
@@ -50,8 +65,18 @@ export async function answerQuestion(question: string, sessionTitle: string): Pr
 
   const data = (await res.json()) as {
     choices?: { message?: { content?: string } }[];
+    error?: { message?: string; code?: number | string };
   };
 
+  if (data.error) {
+    throw new Error(
+      `OpenRouter error: ${data.error.message ?? "unknown"} (${data.error.code ?? "?"})`
+    );
+  }
+
   const text = data.choices?.[0]?.message?.content?.trim() ?? "";
-  return text || "I wasn't able to generate an answer. Try escalating to the instructor.";
+  if (!text) {
+    throw new Error("OpenRouter returned no content.");
+  }
+  return text;
 }
